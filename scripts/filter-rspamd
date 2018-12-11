@@ -3,5 +3,4 @@
 from opensmtpd_rspamd.processor import Rspamd
 
 if __name__ == "__main__":
-    rspamd = Rspamd()
-    rspamd.run()
+    Rspamd().run()
