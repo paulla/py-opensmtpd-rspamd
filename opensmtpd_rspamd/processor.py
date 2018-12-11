@@ -22,6 +22,8 @@ import sys
 
 import requests
 
+sessions = {}
+
 class Rspamd():
     def __init__(self):
         self.stream = smtp_in()
@@ -44,97 +46,123 @@ class Rspamd():
     def run(self):
         self.stream.run()
 
-sessions = {}
-payloads = {}
-failures = {}
+
+
+class Session():
+    def __init__(self):
+        self.control = {}
+        self.payload = []
+        self.reject_reason = None
+        self.message = None
+
+    def push(self, line):
+        if line != '.':
+            self.payload.append(line)
+            return False
+        else:
+            self.message = email.message_from_string('\n'.join(self.payload))
+            return True
+
 
 def link_connect(timestamp, session_id, args):
     rdns, _, laddr, _ = args
-    sessions[session_id] = {}
 
+    session = sessions[session_id] = Session()
+    session.control['Pass'] = 'all'
     src, port = laddr.split(':')
     if src != 'local':
-        sessions[session_id]['Ip'] = src
+        session.control['Ip'] = src
     if rdns:
-        sessions[session_id]['Hostname'] = rdns
-    sessions[session_id]['Pass'] = 'all'
+        session.control['Hostname'] = rdns
+
 
 def link_disconnect(timestamp, session_id, args):
-    if session_id in failures:
-        failures.pop(session_id)
-    if session_id in payloads:
-        payloads.pop(session_id)
     sessions.pop(session_id)
+
 
 def link_identify(timestamp, session_id, args):
     helo = args[0]
-    sessions[session_id]['Helo'] = args[0]
+
+    session = sessions[session_id]
+    session.control['Helo'] = helo
+
 
 def tx_begin(timestamp, session_id, args):
     tx_id = args[0]
-    sessions[session_id]['Queue-Id'] = tx_id
+
+    session = sessions[session_id]
+    session.control['Queue-Id'] = tx_id
+
 
 def tx_mail(timestamp, session_id, args):
     _, mail_from, status = args
     if status == 'ok':
-        sessions[session_id]['From'] = mail_from
+        session = sessions[session_id]
+        session.control['From'] = mail_from
 
 def tx_rcpt(timestamp, session_id, args):
     _, rcpt_to, status = args
     if status == 'ok':
-        sessions[session_id]['Rcpt'] = rcpt_to
+        session = sessions[session_id]
+        session.control['Rcpt'] = rcpt_to
+
 
 def tx_cleanup(timestamp, session_id, args):
-    sessions[session_id] = {}
+    session = sessions[session_id]
+    session.control = {}
+
 
 def filter_data(timestamp, session_id, args):
-    payloads[session_id] = []
+    # this should probably be a tx event
+    session = sessions[session_id]
+    session.payload = []
     proceed(session_id)
 
+
 def filter_commit(timestamp, session_id, args):
-    if session_id in failures:
-        action = failures.pop(session_id)
-        if action == 'reject':
-            reject(session_id, '550 message rejected')
-        if action == 'soft reject':
-            reject(session_id, '451 try again later')
-        if action == 'greylist':
-            reject(session_id, '421 greylisted')
+    session = sessions[session_id]
+    if session.reject_reason:
+        reject(session_id, session.reject_reason)
     else:
         proceed(session_id)
 
+
 def filter_data_line(timestamp, session_id, args):
     line = args[0]
-    if line != '.':
-        payloads[session_id].append(line)
+
+    session = sessions[session_id]
+    if session.push(line):
         return
 
-    ml = email.message_from_string('\n'.join(payloads[session_id]))
     try:
-        ret = requests.post('http://localhost:11333/checkv2',
-                            headers=sessions[session_id],
-                            data=str(ml))
+        res = requests.post('http://localhost:11333/checkv2',
+                            headers=session.control,
+                            data=str(self.message))
+        jret = res.json()
     except:
-        ret = {}
+        jret = {}
 
-    if ret:
-        data_output(session_id, ml, ret.json())
-    else:
-        for line in str(ml).split('\n'):
-            dataline(session_id, line)
-        dataline(session_id, ".")
+    data_output(session, jret)
 
-def data_output(session_id, ml, jret):
-    if jret['action'] == 'rewrite subject':
-        del ml['Subject']
-        ml['Subject'] = jret['subject']
-    ml['X-Spam-Action'] = jret['action']
-    if jret['action'] == 'add header':
-        ml['X-Spam'] = 'yes'
-    if jret['action'] in ('reject', 'greylist', 'soft reject'):
-        failures[session_id] = jret['action']
-    ml['X-Spam-Sore'] = "%s / %s" % (jret['score'], jret['required_score'])
-    ml['X-Spam-Symbols'] = ', '.join(jret['symbols'])
+
+def data_output(session, jret):
+    ml = session.message
+
+    if jret:
+        if jret['action'] == 'rewrite subject':
+            del ml['Subject']
+            ml['Subject'] = jret['subject']
+        ml['X-Spam-Action'] = jret['action']
+        if jret['action'] == 'add header':
+            ml['X-Spam'] = 'yes'
+        if jret['action'] == 'reject':
+            session.reject_reason = '550 message rejected'
+        if jret['action'] == 'greylist':
+            session.reject_reason = '421 greylisted'
+        if jret['action'] == 'soft reject':
+            session.reject_reason = '451 try again later'
+        ml['X-Spam-Sore'] = '%s / %s' % (jret['score'], jret['required_score'])
+        ml['X-Spam-Symbols'] = ', '.join(jret['symbols'])
 
     for line in str(ml).split('\n'):
         dataline(session_id, line)
