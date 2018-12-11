@@ -58,10 +58,10 @@ class Session():
     def push(self, line):
         if line != '.':
             self.payload.append(line)
-            return False
+            return True
         else:
             self.message = email.message_from_string('\n'.join(self.payload))
-            return True
+            return False
 
 
 def link_connect(timestamp, session_id, args):
@@ -137,7 +137,7 @@ def filter_data_line(timestamp, session_id, args):
     try:
         res = requests.post('http://localhost:11333/checkv2',
                             headers=session.control,
-                            data=str(self.message))
+                            data=str(session.message))
         jret = res.json()
     except:
         jret = {}
