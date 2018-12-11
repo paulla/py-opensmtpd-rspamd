@@ -48,7 +48,8 @@ class Rspamd():
 
 
 class Session():
-    def __init__(self):
+    def __init__(self, session_id):
+        self.session_id = session_id
         self.control = {}
         self.payload = []
         self.reject_reason = None
@@ -66,7 +67,7 @@ class Session():
 def link_connect(timestamp, session_id, args):
     rdns, _, laddr, _ = args
 
-    session = sessions[session_id] = Session()
+    session = sessions[session_id] = Session(session_id)
     session.control['Pass'] = 'all'
     src, port = laddr.split(':')
     if src != 'local':
@@ -164,5 +165,5 @@ def data_output(session, jret):
         ml['X-Spam-Symbols'] = ', '.join(jret['symbols'])
 
     for line in str(ml).split('\n'):
-        dataline(session_id, line)
-    dataline(session_id, ".")
+        dataline(session.session_id, line)
+    dataline(session.session_id, ".")
