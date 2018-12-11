@@ -18,7 +18,6 @@
 from opensmtpd.filters import smtp_in, proceed, reject, dataline
 
 import email
-import sys
 
 import requests
 
