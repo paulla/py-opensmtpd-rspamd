@@ -27,20 +27,20 @@ class Rspamd():
     def __init__(self):
         self.stream = smtp_in()
 
-        self.stream.on_report('link-connect', link_connect, self)
-        self.stream.on_report('link-disconnect', link_disconnect, self)
-        self.stream.on_report('link-identify', link_identify, self)
+        self.stream.on_report('link-connect', link_connect, None)
+        self.stream.on_report('link-disconnect', link_disconnect, None)
+        self.stream.on_report('link-identify', link_identify, None)
 
-        self.stream.on_report('tx-begin', tx_begin, self)
-        self.stream.on_report('tx-mail', tx_mail, self)
-        self.stream.on_report('tx-rcpt', tx_rcpt, self)
-        self.stream.on_report('tx-commit', tx_cleanup, self)
-        self.stream.on_report('tx-rollback', tx_cleanup, self)
+        self.stream.on_report('tx-begin', tx_begin, None)
+        self.stream.on_report('tx-mail', tx_mail, None)
+        self.stream.on_report('tx-rcpt', tx_rcpt, None)
+        self.stream.on_report('tx-commit', tx_cleanup, None)
+        self.stream.on_report('tx-rollback', tx_cleanup, None)
 
-        self.stream.on_filter('data', filter_data, self)
-        self.stream.on_filter('commit', filter_commit, self)
+        self.stream.on_filter('data', filter_data, None)
+        self.stream.on_filter('commit', filter_commit, None)
 
-        self.stream.on_filter('data-line', filter_data_line, self)
+        self.stream.on_filter('data-line', filter_data_line, None)
         
     def run(self):
         self.stream.run()
