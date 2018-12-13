@@ -163,6 +163,8 @@ def data_output(session, jret):
             session.reject_reason = '451 try again later'
         ml['X-Spam-Sore'] = '%s / %s' % (jret['score'], jret['required_score'])
         ml['X-Spam-Symbols'] = ', '.join(jret['symbols'])
+        if 'dkim-signature' in jret:
+            ml['dkim-signature'] = jret['dkim-signature']
 
     for line in str(ml).split('\n'):
         dataline(session.session_id, line)
