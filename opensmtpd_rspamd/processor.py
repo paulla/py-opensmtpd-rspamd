@@ -27,20 +27,20 @@ class Rspamd():
     def __init__(self):
         self.stream = smtp_in()
 
-        self.stream.on_report('link-connect', link_connect)
-        self.stream.on_report('link-disconnect', link_disconnect)
-        self.stream.on_report('link-identify', link_identify)
+        self.stream.on_report('link-connect', link_connect, self)
+        self.stream.on_report('link-disconnect', link_disconnect, self)
+        self.stream.on_report('link-identify', link_identify, self)
 
-        self.stream.on_report('tx-begin', tx_begin)
-        self.stream.on_report('tx-mail', tx_mail)
-        self.stream.on_report('tx-rcpt', tx_rcpt)
-        self.stream.on_report('tx-commit', tx_cleanup)
-        self.stream.on_report('tx-rollback', tx_cleanup)
+        self.stream.on_report('tx-begin', tx_begin, self)
+        self.stream.on_report('tx-mail', tx_mail, self)
+        self.stream.on_report('tx-rcpt', tx_rcpt, self)
+        self.stream.on_report('tx-commit', tx_cleanup, self)
+        self.stream.on_report('tx-rollback', tx_cleanup, self)
 
-        self.stream.on_filter('data', filter_data)
-        self.stream.on_filter('commit', filter_commit)
+        self.stream.on_filter('data', filter_data, self)
+        self.stream.on_filter('commit', filter_commit, self)
 
-        self.stream.on_filter('data-line', filter_data_line)
+        self.stream.on_filter('data-line', filter_data_line, self)
         
     def run(self):
         self.stream.run()
@@ -64,7 +64,7 @@ class Session():
             return False
 
 
-def link_connect(timestamp, session_id, args):
+def link_connect(ctx, timestamp, session_id, args):
     rdns, _, laddr, _ = args
 
     session = sessions[session_id] = Session(session_id)
@@ -76,50 +76,50 @@ def link_connect(timestamp, session_id, args):
         session.control['Hostname'] = rdns
 
 
-def link_disconnect(timestamp, session_id, args):
+def link_disconnect(ctx, timestamp, session_id, args):
     sessions.pop(session_id)
 
 
-def link_identify(timestamp, session_id, args):
+def link_identify(ctx, timestamp, session_id, args):
     helo = args[0]
 
     session = sessions[session_id]
     session.control['Helo'] = helo
 
 
-def tx_begin(timestamp, session_id, args):
+def tx_begin(ctx, timestamp, session_id, args):
     tx_id = args[0]
 
     session = sessions[session_id]
     session.control['Queue-Id'] = tx_id
 
 
-def tx_mail(timestamp, session_id, args):
+def tx_mail(ctx, timestamp, session_id, args):
     _, mail_from, status = args
     if status == 'ok':
         session = sessions[session_id]
         session.control['From'] = mail_from
 
-def tx_rcpt(timestamp, session_id, args):
+def tx_rcpt(ctx, timestamp, session_id, args):
     _, rcpt_to, status = args
     if status == 'ok':
         session = sessions[session_id]
         session.control['Rcpt'] = rcpt_to
 
 
-def tx_cleanup(timestamp, session_id, args):
+def tx_cleanup(ctx, timestamp, session_id, args):
     session = sessions[session_id]
     session.control = {}
 
 
-def filter_data(timestamp, session_id, args):
+def filter_data(ctx, timestamp, session_id, args):
     # this should probably be a tx event
     session = sessions[session_id]
     session.payload = []
     proceed(session_id)
 
 
-def filter_commit(timestamp, session_id, args):
+def filter_commit(ctx, timestamp, session_id, args):
     session = sessions[session_id]
     if session.reject_reason:
         reject(session_id, session.reject_reason)
@@ -127,7 +127,7 @@ def filter_commit(timestamp, session_id, args):
         proceed(session_id)
 
 
-def filter_data_line(timestamp, session_id, args):
+def filter_data_line(ctx, timestamp, session_id, args):
     line = args[0]
 
     session = sessions[session_id]
