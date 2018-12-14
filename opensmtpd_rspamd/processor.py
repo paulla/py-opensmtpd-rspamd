@@ -108,8 +108,9 @@ def tx_rcpt(ctx, timestamp, session_id, args):
 
 def tx_data(ctx, timestamp, session_id, args):
     _, status = args
-    session = sessions[session_id]
-    session.payload = []
+    if status == 'ok':
+        session = sessions[session_id]
+        session.payload = []
 
 def tx_cleanup(ctx, timestamp, session_id, args):
     session = sessions[session_id]
