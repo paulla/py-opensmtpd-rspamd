@@ -34,10 +34,10 @@ class Rspamd():
         self.stream.on_report('tx-begin', tx_begin, None)
         self.stream.on_report('tx-mail', tx_mail, None)
         self.stream.on_report('tx-rcpt', tx_rcpt, None)
+        self.stream.on_report('tx-data', tx_data, None)
         self.stream.on_report('tx-commit', tx_cleanup, None)
         self.stream.on_report('tx-rollback', tx_cleanup, None)
 
-        self.stream.on_filter('data', filter_data, None)
         self.stream.on_filter('commit', filter_commit, None)
 
         self.stream.on_filter('data-line', filter_data_line, None)
@@ -106,18 +106,14 @@ def tx_rcpt(ctx, timestamp, session_id, args):
         session = sessions[session_id]
         session.control['Rcpt'] = rcpt_to
 
+def tx_data(ctx, timestamp, session_id, args):
+    _, status = args
+    session = sessions[session_id]
+    session.payload = []
 
 def tx_cleanup(ctx, timestamp, session_id, args):
     session = sessions[session_id]
     session.control = {}
-
-
-def filter_data(ctx, timestamp, session_id, args):
-    # this should probably be a tx event
-    session = sessions[session_id]
-    session.payload = []
-    proceed(session_id)
-
 
 def filter_commit(ctx, timestamp, session_id, args):
     session = sessions[session_id]
