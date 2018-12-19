@@ -116,15 +116,15 @@ def tx_cleanup(ctx, timestamp, session_id, args):
     session = sessions[session_id]
     session.control = {}
 
-def filter_commit(ctx, timestamp, session_id, args):
+def filter_commit(ctx, timestamp, token, session_id, args):
     session = sessions[session_id]
     if session.reject_reason:
-        reject(session_id, session.reject_reason)
+        reject(token, session_id, session.reject_reason)
     else:
-        proceed(session_id)
+        proceed(token, session_id)
 
 
-def filter_data_line(ctx, timestamp, session_id, args):
+def filter_data_line(ctx, timestamp, token, session_id, args):
     line = args[0]
 
     session = sessions[session_id]
@@ -139,10 +139,10 @@ def filter_data_line(ctx, timestamp, session_id, args):
     except:
         jret = {}
 
-    data_output(session, jret)
+    data_output(token, session, jret)
 
 
-def data_output(session, jret):
+def data_output(token, session, jret):
     ml = session.message
 
     if jret:
@@ -164,5 +164,5 @@ def data_output(session, jret):
             ml['dkim-signature'] = jret['dkim-signature']
 
     for line in str(ml).split('\n'):
-        dataline(session.session_id, line)
-    dataline(session.session_id, ".")
+        dataline(token, session.session_id, line)
+    dataline(token, session.session_id, ".")
