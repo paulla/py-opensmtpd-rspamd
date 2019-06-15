@@ -41,7 +41,7 @@ class Rspamd():
         self.stream.on_filter('commit', filter_commit, None)
 
         self.stream.on_filter('data-line', filter_data_line, None)
-        
+
     def run(self):
         self.stream.run()
 
@@ -69,7 +69,7 @@ def link_connect(ctx, timestamp, session_id, args):
 
     session = sessions[session_id] = Session(session_id)
     session.control['Pass'] = 'all'
-    src, port = laddr.split(':')
+    src, port = ":".join(laddr.split(':')[:-2]), laddr.split(':')[-1]
     if src != 'local':
         session.control['Ip'] = src
     if rdns:
